@@ -17,6 +17,4 @@ npm run deploy     # Cloudflare Workers'a deploy
 
 ## Deployment
 
-Cloudflare hesabı: **Buğra Canata**  
-Worker adı: `vosb-k12-tr`  
 Canlı URL: [vosb.k12.tr](https://vosb.k12.tr)
