@@ -60,7 +60,9 @@ export default {
     let body;
     if (isText) {
       const text = await response.text();
-      body = text.replaceAll(ORIGIN, PROXY);
+      body = text
+        .replaceAll(ORIGIN, PROXY)
+        .replaceAll(`//${new URL(ORIGIN).host}`, `//${url.host}`);
     } else {
       body = response.body;
     }
