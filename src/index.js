@@ -28,6 +28,7 @@ export default {
     headers.set('Referer', ORIGIN);
     headers.set('Origin', ORIGIN);
     headers.set('X-Requested-With', 'XMLHttpRequest');
+    headers.set('Accept-Encoding', 'identity'); // prevent upstream gzip; CF strips content-encoding but not the body
 
     // Cache lookup for GET requests
     const cache = caches.default;
