@@ -2,6 +2,7 @@ export default {
   async fetch(request, env, ctx) {
     const ORIGIN = 'https://velikoyosb.meb.k12.tr';
     const url = new URL(request.url);
+    const PROXY = `${url.protocol}//${url.host}`;
 
     // Handle preflight first — no other work needed
     if (request.method === 'OPTIONS') {
@@ -50,7 +51,25 @@ export default {
       return new Response('Bad Gateway', { status: 502 });
     }
 
-    const modifiedResponse = new Response(response.body, response);
+    const ct = response.headers.get('content-type') ?? '';
+    const isText = ct.includes('text/') || ct.includes('application/javascript') ||
+                   ct.includes('application/json') || ct.includes('application/xml');
+
+    // For text responses: rewrite upstream URLs in the body so all sub-requests
+    // go through the proxy (fixes CORS errors and cross-origin iframe blocks)
+    let body;
+    if (isText) {
+      const text = await response.text();
+      body = text.replaceAll(ORIGIN, PROXY);
+    } else {
+      body = response.body;
+    }
+
+    const modifiedResponse = new Response(body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: new Headers(response.headers),
+    });
 
     // CORS headers
     modifiedResponse.headers.set('Access-Control-Allow-Origin', '*');
@@ -61,15 +80,11 @@ export default {
     // Rewrite redirect Location to proxy domain
     const location = modifiedResponse.headers.get('location');
     if (location) {
-      modifiedResponse.headers.set(
-        'location',
-        location.replace(ORIGIN, `${url.protocol}//${url.host}`)
-      );
+      modifiedResponse.headers.set('location', location.replace(ORIGIN, PROXY));
     }
 
     // Cache static assets at the edge
-    if (request.method === 'GET' && response.ok) {
-      const ct = response.headers.get('content-type') ?? '';
+    if (request.method === 'GET' && response.ok && !isText) {
       const isStatic = /\.(css|js|png|jpe?g|gif|svg|ico|woff2?)$/i.test(url.pathname);
       if (isStatic || ct.includes('image') || ct.includes('font')) {
         ctx.waitUntil(cache.put(cacheKey, modifiedResponse.clone()));
